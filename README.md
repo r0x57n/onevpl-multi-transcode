@@ -3,15 +3,13 @@ This program is used as a benchmarking tool to evaluate the transcoding capabili
 
 ## Flags
 
-|------|--------------------------------------------------------------|
 | Flag | Meaning                                                      |
 |------|--------------------------------------------------------------|
 | -h   | Use hardware acceleration (default off).                     |
 | -n   | How many parallell transcodings that should run (default 1). |
-|------|--------------------------------------------------------------|
 
 # Why
-WISI wanted to evaluate the performance of transcoding from H.264 to H.262. Specifically what performance boost one gets with HWA (biggest importance was on encoding).
+WISI wanted to evaluate the performance of transcoding from H.259 to H.262. Specifically what performance boost one gets with HWA (biggest importance was on encoding).
 
 The goal was to come as close to 30 parallell transcoded transport streams as possible. The hardware was an Intel NUC 13 Pro (the last CPU to have HWA for H.262). Quantity > quality.
 
