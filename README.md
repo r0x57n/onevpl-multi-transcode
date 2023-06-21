@@ -1,14 +1,18 @@
 # multi-transcode
 
+This program is used as a benchmarking tool to evaluate the transcoding capabilities of [oneVPL](https://spec.oneapi.io/onevpl/latest/index.html). It takes an input file (encoded to H.264), decodes it and then encodes it to H.262.
+
 | Flag | Meaning                                                      |
 |------|--------------------------------------------------------------|
 | -h   | Use hardware acceleration (default off).                     |
 | -n   | How many parallell transcodings that should run (default 1). |
 
-## About
-This program is used as a benchmarking tool to evaluate the transcoding capabilities of [oneVPL](https://spec.oneapi.io/onevpl/latest/index.html). It takes an input file (encoded to H.264), decodes it and then encodes it to H.262.
+## Build
+~~~bash
+mkdir build && cd build && cmake .. && make
+~~~
 
-### Roadmap
+## Roadmap
 [x] Transcode example works on NUC  
 [ ] Create the project skeleton  
 [ ] Simple transcoding, according to requirements, works on NUC  
@@ -16,7 +20,7 @@ This program is used as a benchmarking tool to evaluate the transcoding capabili
 [ ] 1:N pipelining implemented  
 [ ] Scale as close to 30 streams as possible  
 
-### Resources/ideas
+## Resources/ideas
 Basically this program but implemented in an older API, [here](https://github.com/Intel-Media-SDK/MediaSDK/tree/master/samples/sample_multi_transcode), used [pipelines](https://www.intel.com/content/www/us/en/developer/articles/technical/exploring-1n-transcoding-pipelines-with-intel-media-server-studio.html) which might be of interest.
 
 ## Why
