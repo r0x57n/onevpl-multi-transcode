@@ -1,5 +1,4 @@
-#include "vpl/mfxvideo.h"
-#include "vpl/mfxdispatcher.h"
+#include "vpl/mfx.h"
 #include <stddef.h>
 #include <stdio.h>
 
@@ -7,6 +6,7 @@
 // https://spec.oneapi.io/onevpl/latest/programming_guide/VPL_prg_session.html#onevpl-dispatcher-configuration-properties
 enum ConfigProperty {
     HardwareAccelerated = 0,
+    SoftwareAccelerated,
 };
 
 /*

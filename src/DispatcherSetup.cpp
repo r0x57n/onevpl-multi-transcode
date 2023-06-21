@@ -3,13 +3,13 @@
 DispatcherSetup::DispatcherSetup() {
     loader = MFXLoad();
     if(loader == NULL) {
-        printf("MFXLoad failed.");
+        printf("MFXLoad failed.\n");
     }
 
     // Initialize config
     config = MFXCreateConfig(loader);
     if(config == NULL) {
-        printf("MFXCreateConfig failed.");
+        printf("MFXCreateConfig failed.\n");
     }
 }
 
@@ -24,14 +24,19 @@ int DispatcherSetup::addRequirement(ConfigProperty prop) {
             value.Type = MFX_VARIANT_TYPE_U32;
             value.Data.U32 = MFX_IMPL_TYPE_HARDWARE;
             break;
+        case SoftwareAccelerated:
+            name = (mfxU8*)"mfxImplDescription.Impl";
+            value.Type = MFX_VARIANT_TYPE_U32;
+            value.Data.U32 = MFX_IMPL_TYPE_SOFTWARE;
+            break;
         default:
-            printf("No such requirement exists in this wrapper.");
+            printf("No such requirement exists in this wrapper.\n");
             return 1;
     }
 
     status = MFXSetConfigFilterProperty(this->config, name, value);
     if(status != MFX_ERR_NONE) {
-        printf("Couldn't add requirement: %d", status);
+        printf("Couldn't add requirement: %d\n", status);
         return 1;
     }
 
@@ -43,7 +48,7 @@ int DispatcherSetup::connect() {
 
     status = MFXCreateSession(this->loader, 0, &this->session);
     if(status != MFX_ERR_NONE) {
-        printf("Couldn't create session: %d", status);
+        printf("Can't connect, couldn't create session: %d\n", status);
         return 1;
     }
 
@@ -56,9 +61,10 @@ int DispatcherSetup::printImplementation() {
 
     status = MFXEnumImplementations(loader, 0, MFX_IMPLCAPS_IMPLDESCSTRUCTURE, (mfxHDL *)&implementation);
     if(status != MFX_ERR_NONE) {
-        printf("Couldn't fetch current implementation: %d", status);
+        printf("Couldn't fetch current implementation: %d\n", status);
     }
 
+    printf("----------------------\n");
     printf("Implementation\n");
     printf("----------------------\n");
     printf("Version: %d.%d\n", implementation->Version.Major,
@@ -108,6 +114,7 @@ int DispatcherSetup::printImplementation() {
             break;
     }
     printf("DeviceID: %s\n", implementation->Dev.DeviceID);
+    printf("----------------------\n");
     fflush(stdout);
 
     MFXDispReleaseImplDescription(loader, implementation);
