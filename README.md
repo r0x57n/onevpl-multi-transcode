@@ -1,11 +1,16 @@
 # multi-transcode
+This program is meant to be used as a way to benchmark the transcoding capabilities of [oneVPL](https://spec.oneapi.io/onevpl/latest/index.html). It takes an input transportstream with video encoded in H.264, demuxes the stream and transcodes the video to H.262 which is then multiplexed again.
 
-This program is used as a benchmarking tool to evaluate the transcoding capabilities of [oneVPL](https://spec.oneapi.io/onevpl/latest/index.html). It takes an input file (encoded to H.264), decodes it and then encodes it to H.262.
+| Flag | Meaning                                                            |
+|------|--------------------------------------------------------------------|
+| -v   | Verbose (default off).                                             |
+| -h   | Use hardware acceleration (default off).                           |
+| -n   | How many parallell transcodings (1:N) that should run (default 1). |
 
-| Flag | Meaning                                                      |
-|------|--------------------------------------------------------------|
-| -h   | Use hardware acceleration (default off).                     |
-| -n   | How many parallell transcodings that should run (default 1). |
+Example usage:
+~~~bash
+multi-transcode -h -n 12 ./input.ts
+~~~
 
 ## Build
 ~~~bash
@@ -23,13 +28,15 @@ mkdir build && cd build && cmake .. && make
 ## Resources/ideas
 Basically this program but implemented in an older API, [here](https://github.com/Intel-Media-SDK/MediaSDK/tree/master/samples/sample_multi_transcode), used [pipelines](https://www.intel.com/content/www/us/en/developer/articles/technical/exploring-1n-transcoding-pipelines-with-intel-media-server-studio.html) which might be of interest.
 
+For benchmarking: https://github.com/intel/media-delivery/blob/master/doc/benchmarks/intel-iris-xe-max-graphics/intel-iris-xe-max-graphics.md
+
 ## Why
-WISI wanted to evaluate the performance of transcoding from H.259 to H.262. Specifically what performance boost one gets with HWA (biggest importance was on encoding).
+A company wanted to evaluate the performance of transcoding from H.264 to H.262. Specifically what performance boost one gets with HWA (biggest importance was on encoding).
 
 The goal was to come as close to 30 parallell transcoded transport streams as possible. The hardware was an Intel NUC 13 Pro (the last CPU to have HWA for H.262). Quantity > quality.
 
 ## Benchmarking
-The benchmarking was made between this program and ffmpeg. WISI wanted to see if it was possible to get better performance by speaking directly to the oneVPL API than going through ffmpeg (which also makes use of it).
+The benchmarking was made between this program and ffmpeg. The company wanted to see if it was possible to get better performance by speaking directly to the oneVPL API than going through ffmpeg (which also makes use of it).
 
 To get a general pointer to how the two compared to eachother the `time` program was used in the following way.
 ~~~bash

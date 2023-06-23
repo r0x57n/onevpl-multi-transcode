@@ -1,6 +1,7 @@
 #include "vpl/mfx.h"
-#include <stddef.h>
-#include <stdio.h>
+// TODO: C headers remove
+#include <cstdio>
+#include <vector>
 
 // A small subset of the available configuration properties of the dispatcher.
 // https://spec.oneapi.io/onevpl/latest/programming_guide/VPL_prg_session.html#onevpl-dispatcher-configuration-properties
@@ -13,15 +14,18 @@ enum ConfigProperty {
  * A simple wrapper for the oneVPL API.
  */
 class DispatcherSetup {
-public:
+private:
     mfxLoader loader   = NULL;
-    mfxConfig config   = NULL;
+    std::vector<mfxConfig> configs;
     mfxSession session = NULL;
 
+    int currentConfig = 0;
+public:
     DispatcherSetup();
     int addRequirement(ConfigProperty prop);
     int connect();
     int printImplementation();
     int cleanup();
-private:
+
+    static void print(mfxLoader loader);
 };
