@@ -2,13 +2,13 @@
 #include <iostream>
 #include <fstream>
 #include <map>
-
-using std::uint8_t;
-using std::uint16_t;
-using std::uint32_t;
+#include <stdint.h>
+#include <unordered_set>
+#include <cstring>
 
 enum PidDescriptors {
     PAT = 0x00,
+    PMT = 0x02,
     SDT = 0x11,
 };
 
@@ -46,11 +46,12 @@ class Demuxer {
 private:
     std::ifstream& file;
     std::map<int, int> serviceToPMT;
+    std::unordered_set<uint16_t> pmtPids;
 
 public:
     Demuxer(std::ifstream& file);
     void video();
-    TSHeader parseHeader(std::uint32_t header);
+    TSHeader parseHeader(uint32_t header);
     void printHeader(int n);
     void scanPids();
 
@@ -60,6 +61,6 @@ public:
      */
     void parseTable(uint8_t* payload);
 
-    void parsePAT(std::uint8_t* payload);
+    void parsePAT(uint8_t* payload);
     void debug();
 };

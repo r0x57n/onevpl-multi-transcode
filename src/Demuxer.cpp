@@ -1,6 +1,4 @@
 #include "Demuxer.hpp"
-#include <unordered_set>
-#include <cstring>
 
 bool DEBUG = true;
 
@@ -67,13 +65,17 @@ void Demuxer::video() {
             default:
                 break;
         }
+
+        if (this->pmtPids.count(parsed.PID)) {
+            parseTable(payload);
+        }
         
         if(parsed.PID == PAT) break;
     }
 }
 
 // TODO: dont byteswap
-TSHeader Demuxer::parseHeader(std::uint32_t header) {
+TSHeader Demuxer::parseHeader(uint32_t header) {
     TSHeader parsedHeader;
     header = byteswap32(header);
     parsedHeader.sync = (header & TSHeaderBitmask::Sync);
@@ -87,24 +89,51 @@ TSHeader Demuxer::parseHeader(std::uint32_t header) {
     return parsedHeader;
 }
 
-void Demuxer::parseTable(std::uint8_t* payload) {
+void Demuxer::parseTable(uint8_t* payload) {
     // Parse table header
-    uint8_t tableID = payload[1];
+    uint8_t tableId = payload[1];
     uint16_t tableLength = ((payload[2] << 8) | payload[3]) & 0x0FFF;
 
-    uint16_t tableData[tableLength];
+    uint8_t tableData[tableLength];
     //std::memcpy(tableData, payload + 8, tableLength * sizeof(uint8_t));
-    std::memcpy(tableData, payload + 8, 8 * sizeof(uint8_t));
+    memcpy(tableData, payload + 4, tableLength * sizeof(uint8_t));
 
-    switch(tableID) {
+    switch(tableId) {
+        case SDT:
+            // Nothing interesting here.
+            break;
         case PAT:
-            std::cout << "TES" << std::endl;
+            {
+            // TODO: have in mind of repeating (e.g. more than one entry)
+            uint8_t patData[tableLength - 5];
+            memcpy(patData, tableData + 5, (tableLength - 5)*sizeof(uint8_t));
+            uint16_t programNumber = (patData[0] << 8) | patData[1];
+            uint16_t pamId = ((patData[2] << 8) | patData[3]) & 0x1FFF;
+            this->serviceToPMT[programNumber] = pamId;
+            this->pmtPids.insert(pamId);
+            }
+            break;
+        case PMT:
+            {
+            // nine bytes till streasm
+            uint8_t streamsData[tableLength - 9];
+            memcpy(streamsData, tableLength + 5, (tableLength - 9)*sizeof(uint8_t));
+            int streams = (streamsData - 4) / 5;
+            for (int i = 1; i <= streams; i++) {
+                uint8_t streamType = streamsData[(5*i) + 0];
+                uint16_t eid = ((streamsData[(5*i) + 1] << 8) | streamsData[(5*i) + 2]) & 0x1FFF;
+                std::cout << streamType << ":" << eid << std::endl;
+            }
+            }
+            break;
+        default:
+            printf("Unknown table type: %d\n", tableId);
             break;
     }
 
 }
 
-void Demuxer::parsePAT(std::uint8_t* payload) {
+void Demuxer::parsePAT(uint8_t* payload) {
     uint8_t tableID = payload[1];
 
     uint16_t tableLength = ((payload[2] << 8) | payload[3]) & 0x0FFF;
@@ -136,7 +165,7 @@ void Demuxer::printHeader(int n) {
         }
 
         // Read the header
-        std::uint32_t header;
+        uint32_t header;
         file.read(reinterpret_cast<char*>(&header), sizeof header);
         TSHeader parsed = parseHeader(header);
 
@@ -171,7 +200,7 @@ void Demuxer::scanPids() {
         }
 
         // Read the header
-        std::uint32_t header;
+        uint32_t header;
         file.read(reinterpret_cast<char*>(&header), sizeof header);
         TSHeader parsed = parseHeader(header);
         pids.insert(parsed.PID);
@@ -202,7 +231,7 @@ void Demuxer::debug() {
         }
 
         // Read the header
-        std::uint32_t header;
+        uint32_t header;
         file.read(reinterpret_cast<char*>(&header), sizeof header);
         TSHeader parsed = parseHeader(header);
         pids.insert(parsed.PID);
