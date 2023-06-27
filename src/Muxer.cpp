@@ -69,12 +69,12 @@ int Muxer::getDecodeParam(mfxVideoParam *param) {
     //AVCodecParameters *codecParams  = inputCtx->streams[videoIndex]->codecpar;
 
     // TODO: dont hardcode
-    std::string codec_name = "mpeg2video";
+    /*std::string codec_name = "mpeg2video";
     AVCodec *video_avc = avcodec_find_encoder_by_name(codec_name.c_str());
-    AVCodecContext *avCtx = avcodec_alloc_context3(video_avc);
+    AVCodecContext *avCtx = avcodec_alloc_context3(video_avc);*/
 
-    param->mfx.CodecId      = libavCodecToMfx(avCtx->codec_id);
-    param->IOPattern        = MFX_IOPATTERN_OUT_VIDEO_MEMORY;
+    /*param->mfx.CodecId      = libavCodecToMfx(avCtx->codec_id);
+    param->IOPattern        = MFX_IOPATTERN_OUT_VIDEO_MEMORY;*/
     //MFXVideoDECODE_DecodeHeader(s)
 
     /*param->AllocId       = 0;
