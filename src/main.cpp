@@ -1,75 +1,67 @@
 #include <string>
 #include <iostream>
 #include <fstream>
-
 #include "DispatcherSetup.hpp"
-#include "Demuxer.hpp"
+#include "Muxer.hpp"
+#include "Config.hpp"
 
-int main(int argc, char* argv[]) {
-    bool verbose = false;
-    bool hwa = false;
-    int streams = 1;
-    std::string filename;
+extern "C" {
+    #include <libavcodec/avcodec.h>
+}
 
-    // Parse args
+Config parseArguments(int argc, char* argv[]) {
+    Config cfg;
+    
     for (int i = 1; i < argc; i++) {
         std::string arg = argv[i];
         if (arg[0] == '-') {
            switch(arg[1]) {
                 case 'h':
-                   hwa = true;
+                   cfg.hwa = true;
                    break;
                 case 'n':
-                   streams = std::stoi(argv[i+1]);
+                   cfg.streams = std::stoi(argv[i+1]);
                    i++;
                    break;
+                case 'v':
+                    cfg.verbose = true;
+                    break;
                 default:
                    printf("Unknown flag: -%c\n", arg[1]);
-                   return 1;
+                   exit(-1);
                    break;
            }
         }
         if (i == argc - 1) {
-            filename = arg;
+            cfg.filename = arg;
         }
     }
 
-    if (filename.empty()) {
+    if (cfg.filename.empty()) {
         printf("Enter a filename.\n");
-        return 1;
+        exit(-1);
     }
 
-    // Open file
-    std::ifstream file(filename, std::ios::binary);
-    if (!file.is_open()) {
-        std::cout << "Couldn't open file: " << filename << std::endl;
-    }
-
-    // Demux file
-    {
-        Demuxer demux(file);
-        demux.video();
-    }
-
-    file.close();
-
-    return 0;
+    return cfg;
 }
 
-int dispatch() {
-    DispatcherSetup setup;
+int main(int argc, char* argv[]) {
+    Config cfg = parseArguments(argc, argv);
+    Transcoder transcoder(cfg);
+    Muxer muxer(cfg);
 
-    // Set requirements of the wanted implementation
-    //setup.addRequirement(HardwareAccelerated);
-    //setup.addRequirement(SoftwareAccelerated);
-
-    if(setup.connect()) {
+    if (muxer.init() < 0) {
+        printf("Couldn't initialize muxer.\n");
         return 1;
     }
 
-    setup.printImplementation();
+    if (transcoder.init() < 0) {
+        printf("Couldn't setup dispatcher.\n");
+        return 1;
+    }
 
-    setup.cleanup();
-
+    transcoder.cleanup();
+    muxer.cleanup();
+    
     return 0;
 }

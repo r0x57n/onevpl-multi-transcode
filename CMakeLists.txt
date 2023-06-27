@@ -16,4 +16,4 @@ project(
 
 file(GLOB SOURCES "src/*.cpp")
 add_executable(main ${SOURCES})
-target_link_libraries(main PRIVATE libvpl.so)
+target_link_libraries(main PRIVATE libvpl.so libavformat.so libavcodec.so libavutil.so)

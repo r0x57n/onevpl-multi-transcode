@@ -1,4 +1,8 @@
+#ifndef TRANSCODER_H
+#define TRANSCODER_H
+
 #include "vpl/mfx.h"
+#include "Config.hpp"
 // TODO: C headers remove
 #include <cstdio>
 #include <vector>
@@ -13,19 +17,25 @@ enum ConfigProperty {
 /*
  * A simple wrapper for the oneVPL API.
  */
-class DispatcherSetup {
+class Transcoder {
 private:
+    Config cfg;
     mfxLoader loader   = NULL;
     std::vector<mfxConfig> configs;
     mfxSession session = NULL;
+    mfxVideoParam decodeParam;
 
     int currentConfig = 0;
 public:
-    DispatcherSetup();
+    Transcoder(Config cfg);
+    int init();
     int addRequirement(ConfigProperty prop);
-    int connect();
+    int addBitstream();
+    int decode();
     int printImplementation();
     int cleanup();
 
     static void print(mfxLoader loader);
 };
+
+#endif

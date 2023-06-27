@@ -1,5 +1,5 @@
 # multi-transcode
-This program is meant to be used as a way to benchmark the transcoding capabilities of [oneVPL](https://spec.oneapi.io/onevpl/latest/index.html). It takes an input transportstream with video encoded in H.264, demuxes the stream and transcodes the video to H.262 which is then multiplexed again.
+This program is meant to be used as a way to benchmark the transcoding capabilities of [oneVPL](https://spec.oneapi.io/onevpl/latest/index.html). It takes an input transportstream with video encoded in H.264, demuxes the stream and transcodes the video to H.262 which is then remuxed again.
 
 | Flag | Meaning                                                            |
 |------|--------------------------------------------------------------------|
@@ -13,6 +13,11 @@ multi-transcode -h -n 12 ./input.ts
 ~~~
 
 ## Build
+ffmpeg depencies for muxing.
+~~~bash
+sudo apt install cmake libavcodec-dev libavformat-dev
+~~~
+
 ~~~bash
 mkdir build && cd build && cmake .. && make
 ~~~
