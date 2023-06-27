@@ -1,4 +1,4 @@
-#include "DispatcherSetup.hpp"
+#include "Transcoder.hpp"
 
 Transcoder::Transcoder(Config cfg) : cfg(cfg) { }
 
@@ -17,6 +17,8 @@ int Transcoder::init() {
         addRequirement(SoftwareAccelerated);
     }
 
+    addRequirement(APIVersion2_2);
+
     status = MFXCreateSession(this->loader, 0, &this->session);
     if(status != MFX_ERR_NONE) {
         printf("Can't connect, couldn't create session: %d\n", status);
@@ -27,18 +29,33 @@ int Transcoder::init() {
         printImplementation();
     }
 
-    // Initialize the decoder
-    mfxInfoMFX decodeMFX;
-    mfxInfoVPP decodeVPP;
+    // Init decoder 
+    mfxBitstream bs;
+    std::ifstream file(cfg.demuxedVideo, std::ios::binary | std::ios::ate);
+    std::streamsize size = file.tellg();
+    file.seekg(0, std::ios::beg);
 
-    decodeParam.AllocId = 0;
-    decodeParam.AsyncDepth = 0;
-    decodeParam.mfx = decodeMFX;
-    decodeParam.vpp = decodeVPP;
-    //decodeParam.Protected;
-    decodeParam.IOPattern = MFX_IOPATTERN_OUT_SYSTEM_MEMORY | MFX_IOPATTERN_IN_SYSTEM_MEMORY;
-    //decodeParam.ExtParam;
-    //decodeParam.NumExtParam;
+    bs.CodecId = MFX_CODEC_AVC;
+    bs.MaxLength = 2000000;
+    bs.DataLength = size;
+    bs.Data = (mfxU8*)calloc(bs.MaxLength, sizeof(mfxU8));
+    file.read(reinterpret_cast<char*>(bs.Data), size);
+
+    decodeParam.mfx.CodecId = MFX_CODEC_AVC;
+    decodeParam.IOPattern = MFX_IOPATTERN_OUT_VIDEO_MEMORY;
+    status = MFXVideoDECODE_DecodeHeader(session, &bs, &decodeParam);
+    if (status != MFX_ERR_NONE) {
+        decodeHeaderError(status);
+        return -1;
+    }
+
+    file.close();
+
+    status = MFXVideoDECODE_Init(session, &decodeParam);
+    if (status != MFX_ERR_NONE) {
+        decodeInitError(status);
+        return -1;
+    }
 
     return 0;
 }
@@ -66,47 +83,41 @@ int Transcoder::addRequirement(ConfigProperty prop) {
             value.Type = MFX_VARIANT_TYPE_U32;
             value.Data.U32 = MFX_IMPL_SOFTWARE;
             break;
+        case APIVersion2_2:
+            name = (mfxU8*)"mfxImplDescription.ApiVersion.Version";
+            value.Type     = MFX_VARIANT_TYPE_U32;
+            value.Data.U32 = (2 << 16 | 2);
+            break;
         default:
             printf("No such requirement exists in this wrapper.\n");
             return -1;
     }
 
-    status = MFXSetConfigFilterProperty(this->configs.at(this->currentConfig), name, value);
+    status = MFXSetConfigFilterProperty(this->configs.back(), name, value);
     if(status != MFX_ERR_NONE) {
         printf("Couldn't add requirement: %d\n", status);
         return -1;
     }
 
-    this->currentConfig++;
-    return 0;
-}
-
-int Transcoder::addBitstream() {
-    mfxBitstream stream;
-    //stream.EncryptedData;
-    //stream.ExtParam;
-    //stream.NumExtParam;
-    //stream.CodecID = MFX_CODEC_MPEG2;
-    
-
     return 0;
 }
 
 int Transcoder::decode() {
-    mfxStatus sts = MFX_ERR_MORE_DATA;
+    mfxStatus status = MFX_ERR_MORE_DATA;
 
-    MFXVideoDECODE_Init(session, &decodeParam);
+    mfxFrameSurface1 *surfaceOut;
+    mfxSyncPoint syncp;
 
     for (;;) {
-           /*sts = MFXVideoDECODE_DecodeFrameAsync(session, bits, NULL, &disp, &syncp);
-           if (sts == MFX_ERR_NONE) {
-              disp->FrameInterface->Synchronize(disp, INFINITE); // or MFXVideoCORE_SyncOperation(session,syncp,INFINITE)
+           //status = MFXVideoDECODE_DecodeFrameAsync(session, bitstream, NULL, &surfaceOut, &syncp);
+           if (status == MFX_ERR_NONE) {
+              /*disp->FrameInterface->Synchronize(disp, INFINITE); // or MFXVideoCORE_SyncOperation(session,syncp,INFINITE)
               do_something_with_decoded_frame(disp);
-              disp->FrameInterface->Release(disp);
+              disp->FrameInterface->Release(disp);*/
            } else {
-               printf("Couldn't decode: %d", sts);
+               decodeError(status);
+               return 1;
            }
-           */
     }
 
     MFXVideoDECODE_Close(session);

@@ -4,26 +4,34 @@
 extern "C" {
     #include <libavcodec/avcodec.h>
     #include <libavformat/avformat.h>
+    #include <libavutil/pixdesc.h>
 }
 
-#include "Config.hpp"
+#include <vpl/mfx.h>
 #include <vector>
+#include <fstream>
+#include "Config.hpp"
+#include "Errors.hpp"
 
-
+/*
+ * Interfaces with libavformat/libavcode to demux the stream.
+ * Also has helper functions to translate between libav and oneVPL.
+ */
 class Muxer {
 private:
     Config cfg;
-    AVFormatContext *inputCtx = NULL;
-    AVFormatContext *outputCtx = NULL;
-    AVCodec *codec = NULL;
-    AVCodecParameters *codecParams = NULL;
-    AVCodecContext *codecContext = NULL;
     std::vector<int> streams;
-public:
-    int videoIndex = -1;
+    int videoIndex                  = -1;
+    AVFormatContext *inputCtx       = NULL;
+    AVFormatContext *outputCtx      = NULL;
 
+    static int libavCodecToMfx(AVCodecID codecId);
+    static int libavProfileToMfx(AVCodecID codecId, int profile);
+public:
     Muxer(Config cfg);
     int init();
+    int demux();
+    int getDecodeParam(mfxVideoParam *param);
     int readFrame(AVPacket *frame);
     int cleanup();
 };

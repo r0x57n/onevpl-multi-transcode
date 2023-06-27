@@ -1,7 +1,7 @@
 #include <string>
 #include <iostream>
 #include <fstream>
-#include "DispatcherSetup.hpp"
+#include "Transcoder.hpp"
 #include "Muxer.hpp"
 #include "Config.hpp"
 
@@ -47,18 +47,21 @@ Config parseArguments(int argc, char* argv[]) {
 
 int main(int argc, char* argv[]) {
     Config cfg = parseArguments(argc, argv);
-    Transcoder transcoder(cfg);
-    Muxer muxer(cfg);
 
+    Muxer muxer(cfg);
     if (muxer.init() < 0) {
         printf("Couldn't initialize muxer.\n");
-        return 1;
+        return -1;
     }
 
+    muxer.demux();
+
+    Transcoder transcoder(cfg);
     if (transcoder.init() < 0) {
-        printf("Couldn't setup dispatcher.\n");
-        return 1;
+        printf("Couldn't initialize transcoder.\n");
+        return -1;
     }
+
 
     transcoder.cleanup();
     muxer.cleanup();
