@@ -21,7 +21,7 @@ int Transcoder::init() {
 
     status = MFXCreateSession(this->loader, 0, &this->session);
     if(status != MFX_ERR_NONE) {
-        printf("Can't connect, couldn't create session: %d\n", status);
+        sessionError(status);
         return -1;
     }
 
@@ -30,16 +30,17 @@ int Transcoder::init() {
     }
 
     // Init decoder 
-    mfxBitstream bs;
+    mfxBitstream bs = { };
     std::ifstream file(cfg.demuxedVideo, std::ios::binary | std::ios::ate);
-    std::streamsize size = file.tellg();
+    const mfxU32 size = file.tellg();
     file.seekg(0, std::ios::beg);
 
     bs.CodecId = MFX_CODEC_AVC;
-    bs.MaxLength = 2000000;
-    bs.DataLength = size;
+    bs.MaxLength = size;
     bs.Data = (mfxU8*)calloc(bs.MaxLength, sizeof(mfxU8));
     file.read(reinterpret_cast<char*>(bs.Data), size);
+    bs.DataLength = size;
+    file.close();
 
     decodeParam.mfx.CodecId = MFX_CODEC_AVC;
     decodeParam.IOPattern = MFX_IOPATTERN_OUT_VIDEO_MEMORY;
@@ -48,9 +49,7 @@ int Transcoder::init() {
         decodeHeaderError(status);
         return -1;
     }
-
-    file.close();
-
+    
     status = MFXVideoDECODE_Init(session, &decodeParam);
     if (status != MFX_ERR_NONE) {
         decodeInitError(status);

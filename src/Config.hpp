@@ -8,7 +8,7 @@ struct Config {
     bool hwa = true;
     int streams = 1;
     std::string filename = "";
-    std::string demuxedVideo = "/tmp/demuxedVideo.mp2";
+    std::string demuxedVideo = "/tmp/demuxedVideo.264";
     std::string demuxedAudio = "/tmp/demuxedAudio.mp2";
 };
 

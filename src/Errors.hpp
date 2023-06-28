@@ -4,4 +4,5 @@
 void decodeHeaderError(mfxStatus sts);
 void decodeInitError(mfxStatus sts);
 void decodeError(mfxStatus sts);
+void sessionError(mfxStatus sts);
 

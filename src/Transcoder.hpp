@@ -4,6 +4,7 @@
 #include <vpl/mfx.h>
 #include <cstdio>
 #include <vector>
+#include <filesystem>
 #include "Errors.hpp"
 #include "Config.hpp"
 #include "Muxer.hpp"

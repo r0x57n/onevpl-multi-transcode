@@ -79,8 +79,24 @@ void decodeError(mfxStatus sts) {
             printf("Decoder not initialized.\n");
             break;
         default:
-            printf("Couldn't decode, unknown error: %d", sts);
+            printf("Unknown error: %d", sts);
             break;
    }
 
+}
+
+void sessionError(mfxStatus sts) {
+    printf("Couldn't create session: ");
+
+    switch (sts) {
+        case MFX_ERR_NULL_PTR:
+            printf("loader/session is null.\n");
+            break;
+        case MFX_ERR_NOT_FOUND:
+            printf("Provided index is out of possible range (requirements not fulfilled).\n");
+            break;
+        default:
+            printf("Unknown error: %d", sts);
+            break;
+    }
 }
