@@ -16,12 +16,17 @@ Config parseArguments(int argc, char* argv[]) {
                     printf("Example usage:\t\t./multi-transcoder -a ./input.264.\n");
                     printf("Expected results:\tA file in the same directory called t0_out.262 that was transcoded with hardware acceleration.\n\n");
                     printf("Flags:\n");
+                    printf("-q\tRun as quietly as possible.\n");
                     printf("-a\tTurn on hardware acceleration.\n");
                     printf("-n\tThe number of threads to run (will increase number of output files).\n");
+                    printf("-h\tPrint this help message.\n");
                     exit(0);
                     break;
                 case 's':
                     cfg.swi = true;
+                    break;
+                case 'q':
+                    cfg.quiet = true;
                     break;
                 case 'n':
                     cfg.threads = std::stoi(argv[i+1]);
@@ -64,7 +69,9 @@ int main(int argc, char* argv[]) {
     for (int i = 0; i < cfg.threads; i++) {
         std::thread* transcodeThread = new std::thread(&Transcoder::transcode, transcoder, i);
         threads.push_back(transcodeThread);
-        printf("[%d] Starting transcoding on thread %d...\n", i, i);
+
+        if (!cfg.quiet)
+            printf("[%d] Starting transcoding on thread %d...\n", i, i);
     }
 
     // Wait for all threads to finish.
@@ -74,8 +81,9 @@ int main(int argc, char* argv[]) {
 
     end = Clock::now();
 
+    if (!cfg.quiet)
+        printf("---------------------------------\n");
     auto duration = std::chrono::duration_cast<std::chrono::seconds>(end - start);
-    printf("---------------------------------\n");
     printf("Took %d seconds.\n", duration);
     
     return 0;

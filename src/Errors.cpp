@@ -125,3 +125,25 @@ void sessionError(mfxStatus sts) {
             break;
     }
 }
+
+void syncError(mfxStatus sts, int thread) {
+    printf("[%d] Syncoperation failed: ", thread);
+
+    switch (sts) {
+        case MFX_ERR_NONE_PARTIAL_OUTPUT:
+            printf("The function completed successfully, bitstream contains a portion of the encoded frame according to required granularity.\n");
+            break;
+        case MFX_WRN_IN_EXECUTION:
+            printf("The specified asynchronous function is in execution.\n");
+            break;
+        case MFX_ERR_ABORTED:
+            printf("The specified asynchronous function aborted due to data dependency on a previous asynchronous function that did not complete.\n");
+            break;
+        case MFX_ERR_DEVICE_FAILED:
+            printf("Device operation failure.\n");
+            break;
+        default:
+            printf("Unknown error: %d\n", sts);
+            break;
+    }
+}

@@ -3,9 +3,10 @@ A simple multithreaded transcoder for benchmarking [oneVPL](https://spec.oneapi.
 
 | Flag     | Meaning                                                            |
 |----------|--------------------------------------------------------------------|
+| -q       | Run quietly.                                                       |
 | -s       | Use software acceleration (default off).                           |
 | -n NUM   | How many parallell transcodings (1:N) that should run (default 1). |
-| -h       | Print help message                                                 |
+| -h       | Print help message.                                                |
 
 Example usage:
 ~~~bash

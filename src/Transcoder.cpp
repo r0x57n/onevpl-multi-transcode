@@ -68,6 +68,59 @@ int Transcoder::init() {
     return 0;
 }
 
+int Transcoder::addRequirement(ConfigProperty prop) {
+    mfxU8* name;
+    mfxVariant value;
+    mfxStatus status = MFX_ERR_NONE;
+
+    // One configuration object can handle only one filter property.
+    mfxConfig config = MFXCreateConfig(loader);
+    if(config == NULL) {
+        printf("MFXCreateConfig failed.\n");
+        return -1;
+    }
+    this->configs.push_back(config);
+
+    switch(prop) {
+        case HardwareAccelerated:
+            name            = (mfxU8*)"mfxImplDescription.Impl";
+            value.Type      = MFX_VARIANT_TYPE_U32;
+            value.Data.U32  = MFX_IMPL_HARDWARE;
+            break;
+        case SoftwareAccelerated:
+            name            = (mfxU8*)"mfxImplDescription.Impl";
+            value.Type      = MFX_VARIANT_TYPE_U32;
+            value.Data.U32  = MFX_IMPL_SOFTWARE;
+            break;
+        case APIVersion2_2:
+            name            = (mfxU8*)"mfxImplDescription.ApiVersion.Version";
+            value.Type      = MFX_VARIANT_TYPE_U32;
+            value.Data.U32  = (2 << 16 | 2);
+            break;
+        case HasAvcDecoder:
+            name            = (mfxU8*)"mfxImplDescription.mfxDecoderDescription.decoder.CodecID";
+            value.Type      = MFX_VARIANT_TYPE_U32;
+            value.Data.U32  = MFX_CODEC_AVC;
+            break;
+        case HasMpeg2Encoder:
+            name            = (mfxU8*)"mfxImplDescription.mfxEncoderDescription.encoder.CodecID";
+            value.Type      = MFX_VARIANT_TYPE_U32;
+            value.Data.U32  = MFX_CODEC_MPEG2;
+            break;
+        default:
+            printf("No such requirement exists in this wrapper.\n");
+            return -1;
+    }
+
+    status = MFXSetConfigFilterProperty(this->configs.back(), name, value);
+    if(status != MFX_ERR_NONE) {
+        printf("Couldn't add requirement: %d\n", status);
+        return -1;
+    }
+
+    return 0;
+}
+
 int Transcoder::setCodecParams(mfxSession* session) {
     mfxStatus status = MFX_ERR_NONE;
 
@@ -133,58 +186,6 @@ int Transcoder::initCodec(mfxSession* session) {
     return 0;
 }
 
-int Transcoder::addRequirement(ConfigProperty prop) {
-    mfxU8* name;
-    mfxVariant value;
-    mfxStatus status = MFX_ERR_NONE;
-
-    // One configuration object can handle only one filter property.
-    mfxConfig config = MFXCreateConfig(loader);
-    if(config == NULL) {
-        printf("MFXCreateConfig failed.\n");
-    }
-    this->configs.push_back(config);
-
-    switch(prop) {
-        case HardwareAccelerated:
-            name            = (mfxU8*)"mfxImplDescription.Impl";
-            value.Type      = MFX_VARIANT_TYPE_U32;
-            value.Data.U32  = MFX_IMPL_HARDWARE;
-            break;
-        case SoftwareAccelerated:
-            name            = (mfxU8*)"mfxImplDescription.Impl";
-            value.Type      = MFX_VARIANT_TYPE_U32;
-            value.Data.U32  = MFX_IMPL_SOFTWARE;
-            break;
-        case APIVersion2_2:
-            name            = (mfxU8*)"mfxImplDescription.ApiVersion.Version";
-            value.Type      = MFX_VARIANT_TYPE_U32;
-            value.Data.U32  = (2 << 16 | 2);
-            break;
-        case HasAvcDecoder:
-            name            = (mfxU8*)"mfxImplDescription.mfxDecoderDescription.decoder.CodecID";
-            value.Type      = MFX_VARIANT_TYPE_U32;
-            value.Data.U32  = MFX_CODEC_AVC;
-            break;
-        case HasMpeg2Encoder:
-            name            = (mfxU8*)"mfxImplDescription.mfxEncoderDescription.encoder.CodecID";
-            value.Type      = MFX_VARIANT_TYPE_U32;
-            value.Data.U32  = MFX_CODEC_MPEG2;
-            break;
-        default:
-            printf("No such requirement exists in this wrapper.\n");
-            return -1;
-    }
-
-    status = MFXSetConfigFilterProperty(this->configs.back(), name, value);
-    if(status != MFX_ERR_NONE) {
-        printf("Couldn't add requirement: %d\n", status);
-        return -1;
-    }
-
-    return 0;
-}
-
 int Transcoder::transcode(int thread) {
     bool transcoding                    = true;
     bool drainingDecoder                = false;
@@ -231,11 +232,14 @@ int Transcoder::transcode(int thread) {
                     }
                     break;
                 case MFX_WRN_VIDEO_PARAM_CHANGED: // probably a bad header
-                    printf("[%d] New sequence header found while decoding, ignoring frame...\n", thread);
+                    if (!cfg.quiet)
+                        printf("[%d] New sequence header found while decoding, ignoring frame...\n", thread);
                     continue;
                     break;
                 default:
-                    decodingError(status, thread);
+                    if (!cfg.quiet)
+                        decodingError(status, thread);
+
                     transcoding = false;
                     break;
             }
@@ -252,9 +256,8 @@ int Transcoder::transcode(int thread) {
                 if (syncp) {
                     // Encoded output is not available on CPU until sync operation completes.
                     status = MFXVideoCORE_SyncOperation(*sessions[thread], syncp, WAIT_100_MILLISECONDS);
-                    if (status != MFX_ERR_NONE) {
-                        printf("MFXVideoCORE_SyncOperation error\n");
-                    }
+                    if (status != MFX_ERR_NONE && !cfg.quiet)
+                        syncError(status, thread);
 
                     // Write encoded stream to output file.
                     output.write(reinterpret_cast<char*>(encodedStream.Data + encodedStream.DataOffset), encodedStream.DataLength);
@@ -269,13 +272,16 @@ int Transcoder::transcode(int thread) {
                 }
                 break;
             default:
-                encodingError(status, thread);
+                if (!cfg.quiet)
+                    encodingError(status, thread);
+
                 transcoding = false;
                 break;
         }
     }
     
-    printf("[%d] Finished, encoded %d frames.\n", thread, encodedFramesCount);
+    if (!cfg.quiet)
+        printf("[%d] Finished, encoded %d frames.\n", thread, encodedFramesCount);
 
     return 0;
 }
