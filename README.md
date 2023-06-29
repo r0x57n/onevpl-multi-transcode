@@ -1,5 +1,5 @@
 # multi-transcode
-A simple multithreaded transcoder for benchmarking [oneVPL](https://spec.oneapi.io/onevpl/latest/index.html). It takes an h.264 elementary stream and transcodes it to h.262. It is based upon the [hello-transcode](https://github.com/oneapi-src/oneVPL/tree/master/examples/api2x/hello-transcode).
+A simple multithreaded transcoder for benchmarking [oneVPL](https://spec.oneapi.io/onevpl/latest/index.html). It takes an h.264 elementary stream and transcodes it to h.262. It is based upon the [hello-transcode](https://github.com/oneapi-src/oneVPL/tree/master/examples/api2x/hello-transcode) example.
 
 | Flag     | Meaning                                                            |
 |----------|--------------------------------------------------------------------|
