@@ -9,11 +9,15 @@ A simple multithreaded transcoder for benchmarking [oneVPL](https://spec.oneapi.
 
 Example usage:
 ~~~bash
-multi-transcode -n 12 ./input.ts
+./multi-transcode -n 12 ./input.ts
 ~~~
 
 Expected output:  
-12 files in the same directory with names t0\_out.262, t1\_out.262 ... t11\_out.262.
+~~~bash
+$ ls
+input.264         t0_out.262   t11_out.262  t2_out.262  t4_out.262  t6_out.262  t8_out.262
+multi-transcode*  t10_out.262  t1_out.262   t3_out.262  t5_out.262  t7_out.262  t9_out.262
+~~~
 
 ## Dependencies
 Follow the official [installation guide](https://github.com/oneapi-src/oneVPL#installation-and-usage) for oneVPL. Required minimal library version is 2.2.
