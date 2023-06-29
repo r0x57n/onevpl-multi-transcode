@@ -9,7 +9,7 @@ A simple multithreaded transcoder for benchmarking [oneVPL](https://spec.oneapi.
 
 Example usage:
 ~~~bash
-./multi-transcode -n 12 ./input.ts
+./multi-transcode -n 12 ./input.264
 ~~~
 
 Expected output:  
