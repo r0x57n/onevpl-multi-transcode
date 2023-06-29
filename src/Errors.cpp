@@ -1,4 +1,5 @@
 #include "Errors.hpp"
+#include <vpl/mfxdefs.h>
 
 void decodeHeaderError(mfxStatus sts) {
     printf("Couldn't decode header: ");
@@ -22,8 +23,8 @@ void decodeHeaderError(mfxStatus sts) {
     }
 }
 
-void decodeInitError(mfxStatus sts) {
-    printf("Couldn't initialize decoder: ");
+void codecInitError(std::string codec, mfxStatus sts) {
+    printf("Couldn't initialize %s: ", codec.c_str());
 
     switch (sts) {
         case MFX_ERR_INVALID_VIDEO_PARAM:
@@ -44,8 +45,8 @@ void decodeInitError(mfxStatus sts) {
     }
 }
 
-void decodeError(mfxStatus sts) {
-    printf("Couldn't decode: ");
+void decodingError(mfxStatus sts, int thread) {
+    printf("[%d] Decoding error: ", thread);
 
     switch (sts) {
        case MFX_ERR_NONE:
@@ -79,10 +80,34 @@ void decodeError(mfxStatus sts) {
             printf("Decoder not initialized.\n");
             break;
         default:
-            printf("Unknown error: %d", sts);
+            printf("Unknown error: %d\n", sts);
             break;
    }
+}
 
+void encodingError(mfxStatus sts, int thread) {
+    printf("[%d] Encoding error: ", thread);
+
+    switch (sts) {
+        case MFX_ERR_NOT_ENOUGH_BUFFER:
+            printf("The bitstream buffer size is insufficient.");
+            break;
+        case MFX_ERR_MORE_DATA:
+            printf("The function requires more data to generate any output.");
+            break;
+        case MFX_ERR_DEVICE_LOST:
+            printf("Hardware device was lost. See the Working with Microsoft* DirectX* Applications section for further information.");
+            break;
+        case MFX_WRN_DEVICE_BUSY:
+            printf("Hardware device is currently busy. Call this function again after MFXVideoCORE_SyncOperation or in a few milliseconds.");
+            break;
+        case MFX_ERR_INCOMPATIBLE_VIDEO_PARAM:
+            printf("Inconsistent parameters detected not conforming to Configuration Parameter Constraints.");
+            break;
+        default:
+            printf("Unknown error: %d\n", sts);
+            break;
+    }
 }
 
 void sessionError(mfxStatus sts) {
@@ -96,7 +121,7 @@ void sessionError(mfxStatus sts) {
             printf("Provided index is out of possible range (requirements not fulfilled).\n");
             break;
         default:
-            printf("Unknown error: %d", sts);
+            printf("Unknown error: %d\n", sts);
             break;
     }
 }

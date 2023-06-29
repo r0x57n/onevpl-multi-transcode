@@ -1,13 +1,8 @@
-#include <string>
-#include <iostream>
-#include <fstream>
-#include "Transcoder.hpp"
-#include "Muxer.hpp"
-#include "Config.hpp"
+#include <thread>
+#include <chrono>
 
-extern "C" {
-    #include <libavcodec/avcodec.h>
-}
+#include "Transcoder.hpp"
+#include "Config.hpp"
 
 Config parseArguments(int argc, char* argv[]) {
     Config cfg;
@@ -17,29 +12,37 @@ Config parseArguments(int argc, char* argv[]) {
         if (arg[0] == '-') {
            switch(arg[1]) {
                 case 'h':
-                   cfg.hwa = true;
-                   break;
+                    printf("Takes an h264 elementary stream and transcodes it to h262.\n\n");
+                    printf("Example usage:\t\t./multi-transcoder -a ./input.264.\n");
+                    printf("Expected results:\tA file in the same directory called t0_out.262 that was transcoded with hardware acceleration.\n\n");
+                    printf("Flags:\n");
+                    printf("-a\tTurn on hardware acceleration.\n");
+                    printf("-n\tThe number of threads to run (will increase number of output files).\n");
+                    exit(0);
+                    break;
+                case 's':
+                    cfg.swi = true;
+                    break;
                 case 'n':
-                   cfg.streams = std::stoi(argv[i+1]);
-                   i++;
-                   break;
-                case 'v':
-                    cfg.verbose = true;
+                    cfg.threads = std::stoi(argv[i+1]);
+                    i++;
                     break;
                 default:
-                   printf("Unknown flag: -%c\n", arg[1]);
-                   exit(-1);
-                   break;
+                    printf("Unknown flag: -%c\n", arg[1]);
+                    exit(-1);
+                    break;
            }
         }
         if (i == argc - 1) {
-            cfg.filename = arg;
+            cfg.inputFile = arg;
         }
     }
 
-    if (cfg.filename.empty()) {
+    if (cfg.inputFile.empty()) {
         printf("Enter a filename.\n");
         exit(-1);
+    } else if (cfg.inputFile == "./in.264") {
+        printf("Using as input: ./in.264.\n");
     }
 
     return cfg;
@@ -47,24 +50,33 @@ Config parseArguments(int argc, char* argv[]) {
 
 int main(int argc, char* argv[]) {
     Config cfg = parseArguments(argc, argv);
-
-    Muxer muxer(cfg);
-    if (muxer.init() < 0) {
-        printf("Couldn't initialize muxer.\n");
-        return -1;
-    }
-
-    muxer.demux();
+    std::vector<std::thread*> threads;
+    typedef std::chrono::high_resolution_clock Clock;
+    std::chrono::system_clock::time_point start = Clock::now();
+    std::chrono::system_clock::time_point end;
 
     Transcoder transcoder(cfg);
     if (transcoder.init() < 0) {
-        printf("Couldn't initialize transcoder.\n");
         return -1;
     }
 
+    // Create threads for all transcodes.
+    for (int i = 0; i < cfg.threads; i++) {
+        std::thread* transcodeThread = new std::thread(&Transcoder::transcode, transcoder, i);
+        threads.push_back(transcodeThread);
+        printf("[%d] Starting transcoding on thread %d...\n", i, i);
+    }
 
-    transcoder.cleanup();
-    muxer.cleanup();
+    // Wait for all threads to finish.
+    for (auto t : threads) {
+        t->join();
+    }
+
+    end = Clock::now();
+
+    auto duration = std::chrono::duration_cast<std::chrono::seconds>(end - start);
+    printf("---------------------------------\n");
+    printf("Took %d seconds.\n", duration);
     
     return 0;
 }

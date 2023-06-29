@@ -2,57 +2,131 @@
 
 Transcoder::Transcoder(Config cfg) : cfg(cfg) { }
 
+Transcoder::~Transcoder() {
+    /*for (int i = cfg.threads - 1; i > 0; i++) {
+        MFXClose(*sessions[i]);
+        free(sessions[i]);
+        sessions.pop_back();
+    }
+    MFXClose(*sessions[0]);
+    free(*sessions[0]);*/
+
+    //MFXUnload(loader);
+
+    // TODO:
+    // FOR configs
+    // etcetc
+}
+
 int Transcoder::init() {
     mfxStatus status = MFX_ERR_NONE;
+    mfxSession* parentSession = new mfxSession;
 
     loader = MFXLoad();
-    if(loader == NULL) {
+    if (loader == NULL) {
         printf("MFXLoad failed.\n");
         return -1;
     }
 
-    if (cfg.hwa) {
-        addRequirement(HardwareAccelerated);
-    } else {
-        addRequirement(SoftwareAccelerated);
-    }
-
+    // Add requirements for the implementation we want.
+    addRequirement(HasAvcDecoder);
+    addRequirement(HasMpeg2Encoder);
     addRequirement(APIVersion2_2);
 
-    status = MFXCreateSession(this->loader, 0, &this->session);
-    if(status != MFX_ERR_NONE) {
-        sessionError(status);
-        return -1;
+    if (cfg.swi) {
+        addRequirement(SoftwareAccelerated);
+    } else {
+        addRequirement(HardwareAccelerated);
     }
 
-    if (cfg.verbose) {
-        printImplementation();
+    // Create sessions
+    for (int i = 0; i < cfg.threads; i++) {
+        mfxSession* session = new mfxSession;
+        status = MFXCreateSession(loader, 0, session);
+        if (status != MFX_ERR_NONE) {
+            sessionError(status);
+            return -1;
+        }
+
+        // Initialize codec params if it's the first session (e.g. parent session).
+        if (i == 0) {
+            parentSession = session;
+            if (setCodecParams(session) < 0) {
+                return -1;
+            }
+        } else {
+            MFXJoinSession(*parentSession, *session);
+        }
+
+        sessions.push_back(session);
+
+        if (initCodec(session) < 0) {
+            return -1;
+        }
     }
 
-    // Init decoder 
-    mfxBitstream bs = { };
-    std::ifstream file(cfg.demuxedVideo, std::ios::binary | std::ios::ate);
-    const mfxU32 size = file.tellg();
+    return 0;
+}
+
+int Transcoder::setCodecParams(mfxSession* session) {
+    mfxStatus status = MFX_ERR_NONE;
+
+    // Read in size of file and create a reading buffer to store it in memory (for bitstreams).
+    std::ifstream file(cfg.inputFile, std::ios::binary | std::ios::ate);
+    streamSize = file.tellg();
     file.seekg(0, std::ios::beg);
-
-    bs.CodecId = MFX_CODEC_AVC;
-    bs.MaxLength = size;
-    bs.Data = (mfxU8*)calloc(bs.MaxLength, sizeof(mfxU8));
-    file.read(reinterpret_cast<char*>(bs.Data), size);
-    bs.DataLength = size;
+    streamData = (mfxU8*)calloc(streamSize, sizeof(mfxU8));
+    file.read(reinterpret_cast<char*>(streamData), streamSize);
     file.close();
 
-    decodeParam.mfx.CodecId = MFX_CODEC_AVC;
-    decodeParam.IOPattern = MFX_IOPATTERN_OUT_VIDEO_MEMORY;
-    status = MFXVideoDECODE_DecodeHeader(session, &bs, &decodeParam);
+    // Set shared decode parameters.
+    decodeParams.mfx.CodecId    = decodeCodec;
+    decodeParams.IOPattern      = MFX_IOPATTERN_OUT_VIDEO_MEMORY;
+
+    // We create a temporary bitstream just to read header from.
+    mfxBitstream headerStream   = { };
+    headerStream.CodecId        = decodeCodec;
+    headerStream.MaxLength      = streamSize;
+    headerStream.DataLength     = streamSize;
+    headerStream.Data           = streamData;
+
+    // Read in params from header in input file.
+    status = MFXVideoDECODE_DecodeHeader(*session, &headerStream, &decodeParams);
     if (status != MFX_ERR_NONE) {
         decodeHeaderError(status);
         return -1;
     }
     
-    status = MFXVideoDECODE_Init(session, &decodeParam);
+    // Set shared encoding parameters.
+    encodeParams.IOPattern                      = MFX_IOPATTERN_IN_SYSTEM_MEMORY;
+    encodeParams.mfx.CodecId                    = encodeCodec;
+    encodeParams.mfx.TargetUsage                = MFX_TARGETUSAGE_BALANCED;
+    encodeParams.mfx.TargetKbps                 = TARGETKBPS;
+    encodeParams.mfx.RateControlMethod          = MFX_RATECONTROL_VBR;
+    encodeParams.mfx.FrameInfo.FrameRateExtN    = decodeParams.mfx.FrameInfo.FrameRateExtN;
+    encodeParams.mfx.FrameInfo.FrameRateExtD    = decodeParams.mfx.FrameInfo.FrameRateExtD;
+    encodeParams.mfx.FrameInfo.FourCC           = decodeParams.mfx.FrameInfo.FourCC;
+    encodeParams.mfx.FrameInfo.ChromaFormat     = decodeParams.mfx.FrameInfo.ChromaFormat;
+    encodeParams.mfx.FrameInfo.CropW            = decodeParams.mfx.FrameInfo.CropW;
+    encodeParams.mfx.FrameInfo.CropH            = decodeParams.mfx.FrameInfo.CropH;
+    encodeParams.mfx.FrameInfo.Width            = decodeParams.mfx.FrameInfo.Width;
+    encodeParams.mfx.FrameInfo.Height           = decodeParams.mfx.FrameInfo.Height;
+
+    return 0;
+}
+
+int Transcoder::initCodec(mfxSession* session) {
+    mfxStatus status = MFX_ERR_NONE;
+
+    status = MFXVideoDECODE_Init(*session, &decodeParams);
     if (status != MFX_ERR_NONE) {
-        decodeInitError(status);
+        codecInitError("decoder", status);
+        return -1;
+    }
+
+    status = MFXVideoENCODE_Init(*session, &encodeParams);
+    if (status != MFX_ERR_NONE) {
+        codecInitError("encoder", status);
         return -1;
     }
 
@@ -73,19 +147,29 @@ int Transcoder::addRequirement(ConfigProperty prop) {
 
     switch(prop) {
         case HardwareAccelerated:
-            name = (mfxU8*)"mfxImplDescription.Impl";
-            value.Type = MFX_VARIANT_TYPE_U32;
-            value.Data.U32 = MFX_IMPL_HARDWARE;
+            name            = (mfxU8*)"mfxImplDescription.Impl";
+            value.Type      = MFX_VARIANT_TYPE_U32;
+            value.Data.U32  = MFX_IMPL_HARDWARE;
             break;
         case SoftwareAccelerated:
-            name = (mfxU8*)"mfxImplDescription.Impl";
-            value.Type = MFX_VARIANT_TYPE_U32;
-            value.Data.U32 = MFX_IMPL_SOFTWARE;
+            name            = (mfxU8*)"mfxImplDescription.Impl";
+            value.Type      = MFX_VARIANT_TYPE_U32;
+            value.Data.U32  = MFX_IMPL_SOFTWARE;
             break;
         case APIVersion2_2:
-            name = (mfxU8*)"mfxImplDescription.ApiVersion.Version";
-            value.Type     = MFX_VARIANT_TYPE_U32;
-            value.Data.U32 = (2 << 16 | 2);
+            name            = (mfxU8*)"mfxImplDescription.ApiVersion.Version";
+            value.Type      = MFX_VARIANT_TYPE_U32;
+            value.Data.U32  = (2 << 16 | 2);
+            break;
+        case HasAvcDecoder:
+            name            = (mfxU8*)"mfxImplDescription.mfxDecoderDescription.decoder.CodecID";
+            value.Type      = MFX_VARIANT_TYPE_U32;
+            value.Data.U32  = MFX_CODEC_AVC;
+            break;
+        case HasMpeg2Encoder:
+            name            = (mfxU8*)"mfxImplDescription.mfxEncoderDescription.encoder.CodecID";
+            value.Type      = MFX_VARIANT_TYPE_U32;
+            value.Data.U32  = MFX_CODEC_MPEG2;
             break;
         default:
             printf("No such requirement exists in this wrapper.\n");
@@ -101,96 +185,97 @@ int Transcoder::addRequirement(ConfigProperty prop) {
     return 0;
 }
 
-int Transcoder::decode() {
-    mfxStatus status = MFX_ERR_MORE_DATA;
+int Transcoder::transcode(int thread) {
+    bool transcoding                    = true;
+    bool drainingDecoder                = false;
+    bool drainingEncoder                = false;
+    int encodedFramesCount              = 0;
+    mfxStatus status                    = MFX_ERR_NONE;
+    mfxStatus status_r                  = MFX_ERR_NONE;
+    mfxFrameSurface1* decodeSurface     = NULL;
+    mfxSyncPoint syncp                  = { };
+    mfxBitstream encodedStream          = { };
+    mfxBitstream threadDecodeStream     = { };
+    const std::string outputFile        = "./t" + std::to_string(thread) + "_" + cfg.outputFile;
+    std::ofstream output(outputFile, std::ios::binary);
 
-    mfxFrameSurface1 *surfaceOut;
-    mfxSyncPoint syncp;
+    // We need separate bitstreams for each thread, but they can all point to the same (reading) data ...
+    threadDecodeStream.CodecId        = decodeCodec;
+    threadDecodeStream.MaxLength      = streamSize;
+    threadDecodeStream.DataLength     = streamSize;
+    threadDecodeStream.Data           = streamData;
+    // ... however, they'll need a unique buffer to write to.
+    encodedStream.MaxLength           = streamSize;
+    encodedStream.Data                = (mfxU8*)calloc(streamSize, sizeof(mfxU8));
 
-    for (;;) {
-           //status = MFXVideoDECODE_DecodeFrameAsync(session, bitstream, NULL, &surfaceOut, &syncp);
-           if (status == MFX_ERR_NONE) {
-              /*disp->FrameInterface->Synchronize(disp, INFINITE); // or MFXVideoCORE_SyncOperation(session,syncp,INFINITE)
-              do_something_with_decoded_frame(disp);
-              disp->FrameInterface->Release(disp);*/
-           } else {
-               decodeError(status);
-               return 1;
-           }
+    while (transcoding) {
+        if (!drainingEncoder) { // when decoding has finished we'll only be draining the encoder
+            status = MFXVideoDECODE_DecodeFrameAsync(*sessions[thread],
+                                                    (drainingDecoder == true) ? NULL : &threadDecodeStream,
+                                                    NULL,
+                                                    &decodeSurface,
+                                                    &syncp);
+
+            switch (status) {
+                case MFX_ERR_NONE: // a frame is ready for encoding
+                    break;
+                case MFX_ERR_MORE_DATA: // needs more data from bitstream to decode
+                    // Since the bitstream contains the full stream to be decoded
+                    // this should mean the decoding has finished. We drain remaining
+                    // cached frames from the decoder.
+                    if (!drainingDecoder) {
+                        drainingDecoder = true;
+                    } else { 
+                        // We've drained what we can from the decoder. Drain the encoder instead.
+                        drainingEncoder = true;
+                    }
+                    break;
+                case MFX_WRN_VIDEO_PARAM_CHANGED: // probably a bad header
+                    printf("[%d] New sequence header found while decoding, ignoring frame...\n", thread);
+                    continue;
+                    break;
+                default:
+                    decodingError(status, thread);
+                    transcoding = false;
+                    break;
+            }
+        }
+
+        status = MFXVideoENCODE_EncodeFrameAsync(*sessions[thread],
+                                                NULL,
+                                                (drainingEncoder == true) ? NULL : decodeSurface,
+                                                &encodedStream,
+                                                &syncp);
+
+        switch (status) {
+            case MFX_ERR_NONE: // function completed succesfully
+                if (syncp) {
+                    // Encoded output is not available on CPU until sync operation completes.
+                    status = MFXVideoCORE_SyncOperation(*sessions[thread], syncp, WAIT_100_MILLISECONDS);
+                    if (status != MFX_ERR_NONE) {
+                        printf("MFXVideoCORE_SyncOperation error\n");
+                    }
+
+                    // Write encoded stream to output file.
+                    output.write(reinterpret_cast<char*>(encodedStream.Data + encodedStream.DataOffset), encodedStream.DataLength);
+                    encodedStream.DataLength = 0;
+                    encodedFramesCount++;
+                }
+                break;
+            case MFX_ERR_MORE_DATA: // more data needed to generate output
+                if (drainingEncoder == true) {
+                    // No more data to drain from encoder, we're finished.
+                    transcoding = false;
+                }
+                break;
+            default:
+                encodingError(status, thread);
+                transcoding = false;
+                break;
+        }
     }
+    
+    printf("[%d] Finished, encoded %d frames.\n", thread, encodedFramesCount);
 
-    MFXVideoDECODE_Close(session);
-}
-
-int Transcoder::printImplementation() {
-    mfxStatus status = MFX_ERR_NONE;
-    mfxImplDescription* implementation;
-
-    status = MFXEnumImplementations(this->loader, 0, MFX_IMPLCAPS_IMPLDESCSTRUCTURE, (mfxHDL *)&implementation);
-    if(status != MFX_ERR_NONE) {
-        printf("Couldn't fetch current implementation: %d\n", status);
-    }
-
-    printf("----------------------\n");
-    printf("Implementation\n");
-    printf("----------------------\n");
-    printf("Version: %d.%d\n", implementation->Version.Major,
-                               implementation->Version.Minor);
-    printf("API Version: %d.%d\n", implementation->ApiVersion.Major,
-                                   implementation->ApiVersion.Minor);
-    printf("HWA: ");
-    switch(implementation->Impl) {
-        case MFX_IMPL_TYPE_HARDWARE:
-            printf("On\n");
-            break;
-        default:
-            printf("Off\n");
-            break;
-    }
-    printf("AccelerationMode via: ");
-    switch (implementation->AccelerationMode) {
-        case MFX_ACCEL_MODE_NA:
-            printf("NA\n");
-            break;
-        case MFX_ACCEL_MODE_VIA_D3D9:
-            printf("D3D9\n");
-            break;
-        case MFX_ACCEL_MODE_VIA_D3D11:
-            printf("D3D11\n");
-            break;
-        case MFX_ACCEL_MODE_VIA_VAAPI:
-            printf("VAAPI\n");
-            break;
-        case MFX_ACCEL_MODE_VIA_VAAPI_DRM_MODESET:
-            printf("VAAPI_DRM_MODESET\n");
-            break;
-        case MFX_ACCEL_MODE_VIA_VAAPI_GLX:
-            printf("VAAPI_GLX\n");
-            break;
-        case MFX_ACCEL_MODE_VIA_VAAPI_X11:
-            printf("VAAPI_X11\n");
-            break;
-        case MFX_ACCEL_MODE_VIA_VAAPI_WAYLAND:
-            printf("VAAPI_WAYLAND\n");
-            break;
-        case MFX_ACCEL_MODE_VIA_HDDLUNITE:
-            printf("HDDLUNITE\n");
-            break;
-        default:
-            printf("unknown\n");
-            break;
-    }
-    printf("DeviceID: %s\n", implementation->Dev.DeviceID);
-    printf("----------------------\n");
-    fflush(stdout);
-
-    MFXDispReleaseImplDescription(loader, implementation);
-
-    return 0;
-}
-
-int Transcoder::cleanup() {
-    MFXClose(this->session);
-    MFXUnload(loader);
     return 0;
 }

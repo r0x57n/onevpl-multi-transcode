@@ -1,13 +1,16 @@
 #ifndef TRANSCODER_H
 #define TRANSCODER_H
 
-#include <vpl/mfx.h>
 #include <cstdio>
 #include <vector>
-#include <filesystem>
+#include <fstream>
+#include <unistd.h>
+
 #include "Errors.hpp"
 #include "Config.hpp"
-#include "Muxer.hpp"
+
+#define WAIT_100_MILLISECONDS       100
+#define TARGETKBPS                  4000
 
 // A small subset of the available configuration properties of the dispatcher.
 // https://spec.oneapi.io/onevpl/latest/programming_guide/VPL_prg_session.html#onevpl-dispatcher-configuration-properties
@@ -15,28 +18,31 @@ enum ConfigProperty {
     HardwareAccelerated = 0,
     SoftwareAccelerated,
     APIVersion2_2,
+    HasAvcDecoder,
+    HasMpeg2Encoder,
 };
 
-/*
- * A simple wrapper for the oneVPL API.
- */
 class Transcoder {
 private:
     Config cfg;
     std::vector<mfxConfig> configs;
-    mfxVideoParam decodeParam           = { };
+    std::vector<mfxSession*> sessions;
+    mfxU32 streamSize                   = 0;
+    mfxU8* streamData                   = NULL;
     mfxLoader loader                    = NULL;
-    mfxSession session                  = NULL;
+    mfxVideoParam decodeParams          = { };
+    mfxVideoParam encodeParams          = { };
+    const int decodeCodec               = MFX_CODEC_AVC;
+    const int encodeCodec               = MFX_CODEC_MPEG2;
 
 public:
     Transcoder(Config cfg);
+    ~Transcoder();
     int init();
+    int setCodecParams(mfxSession* parentSession);
+    int initCodec(mfxSession* session);
     int addRequirement(ConfigProperty prop);
-    int decode();
-    int printImplementation();
-    int cleanup();
-
-    static void print(mfxLoader loader);
+    int transcode(int thread = 1);
 };
 
 #endif

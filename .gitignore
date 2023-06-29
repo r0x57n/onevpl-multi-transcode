@@ -1,6 +1,8 @@
 compile_commands.json
 compile_flags.txt
 *.ts
+*.262
+*.264
 build/
 .ccls
 .ccls-cache
