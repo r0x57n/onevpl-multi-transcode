@@ -1,5 +1,5 @@
 # multi-transcode
-A simple multithreaded transcoder using [oneVPL](https://spec.oneapi.io/onevpl/latest/index.html). It takes an h.264 elementary stream as input and transcodes it to NUM number of h.262 files. It is based upon the [hello-transcode](https://github.com/oneapi-src/oneVPL/tree/master/examples/api2x/hello-transcode) example.
+A simple multithreaded transcoder using [oneVPL](https://spec.oneapi.io/onevpl/latest/index.html). It takes an h.264 elementary stream as input and transcodes it to NUM number of h.m2v files. It is based upon the [hello-transcode](https://github.com/oneapi-src/oneVPL/tree/master/examples/api2x/hello-transcode) example.
 
 | Flag     | Meaning                                                            |
 |----------|--------------------------------------------------------------------|
@@ -16,8 +16,8 @@ Example usage:
 Expected output:  
 ~~~bash
 $ ls
-input.264         t0_out.262   t11_out.262  t2_out.262  t4_out.262  t6_out.262  t8_out.262
-multi-transcode*  t10_out.262  t1_out.262   t3_out.262  t5_out.262  t7_out.262  t9_out.262
+input.264         t0_out.m2v   t11_out.m2v  t2_out.m2v  t4_out.m2v  t6_out.m2v  t8_out.m2v
+multi-transcode*  t10_out.m2v  t1_out.m2v   t3_out.m2v  t5_out.m2v  t7_out.m2v  t9_out.m2v
 ~~~
 
 ## Dependencies

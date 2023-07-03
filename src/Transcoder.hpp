@@ -17,13 +17,15 @@
 enum ConfigProperty {
     HardwareAccelerated = 0,
     SoftwareAccelerated,
-    APIVersion2_2,
+    ApiVersion2_2,
     HasAvcDecoder,
     HasMpeg2Encoder,
 };
 
 class Transcoder {
 private:
+    const int decodeCodec               = MFX_CODEC_AVC;
+    const int encodeCodec               = MFX_CODEC_MPEG2;
     Config cfg;
     std::vector<mfxConfig> configs;
     std::vector<mfxSession*> sessions;
@@ -32,17 +34,15 @@ private:
     mfxLoader loader                    = NULL;
     mfxVideoParam decodeParams          = { };
     mfxVideoParam encodeParams          = { };
-    const int decodeCodec               = MFX_CODEC_AVC;
-    const int encodeCodec               = MFX_CODEC_MPEG2;
 
+    int initCodec(mfxSession* session);
+    int setCodecParams(mfxSession* parentSession);
+    int addRequirement(ConfigProperty prop);
 public:
     Transcoder(Config cfg);
-    ~Transcoder();
     int init();
-    int setCodecParams(mfxSession* parentSession);
-    int initCodec(mfxSession* session);
-    int addRequirement(ConfigProperty prop);
     int transcode(int thread = 1);
+    int cleanUp();
 };
 
 #endif

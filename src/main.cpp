@@ -56,9 +56,6 @@ Config parseArguments(int argc, char* argv[]) {
 int main(int argc, char* argv[]) {
     Config cfg = parseArguments(argc, argv);
     std::vector<std::thread*> threads;
-    typedef std::chrono::high_resolution_clock Clock;
-    std::chrono::system_clock::time_point start = Clock::now();
-    std::chrono::system_clock::time_point end;
 
     Transcoder transcoder(cfg);
     if (transcoder.init() < 0) {
@@ -79,12 +76,7 @@ int main(int argc, char* argv[]) {
         t->join();
     }
 
-    end = Clock::now();
-
-    if (!cfg.quiet)
-        printf("---------------------------------\n");
-    auto duration = std::chrono::duration_cast<std::chrono::seconds>(end - start);
-    printf("Took %d seconds.\n", duration);
+    transcoder.cleanUp();
     
     return 0;
 }

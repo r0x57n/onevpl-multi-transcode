@@ -2,20 +2,17 @@
 
 Transcoder::Transcoder(Config cfg) : cfg(cfg) { }
 
-Transcoder::~Transcoder() {
-    /*for (int i = cfg.threads - 1; i > 0; i++) {
+int Transcoder::cleanUp() {
+    for (int i = cfg.threads - 1; i >= 0; i--) {
+        MFXDisjoinSession(*sessions[i]);
         MFXClose(*sessions[i]);
-        free(sessions[i]);
         sessions.pop_back();
     }
-    MFXClose(*sessions[0]);
-    free(*sessions[0]);*/
 
-    //MFXUnload(loader);
+    MFXUnload(loader);
+    free(streamData);
 
-    // TODO:
-    // FOR configs
-    // etcetc
+    return 0;
 }
 
 int Transcoder::init() {
@@ -31,7 +28,7 @@ int Transcoder::init() {
     // Add requirements for the implementation we want.
     addRequirement(HasAvcDecoder);
     addRequirement(HasMpeg2Encoder);
-    addRequirement(APIVersion2_2);
+    addRequirement(ApiVersion2_2);
 
     if (cfg.swi) {
         addRequirement(SoftwareAccelerated);
@@ -92,7 +89,7 @@ int Transcoder::addRequirement(ConfigProperty prop) {
             value.Type      = MFX_VARIANT_TYPE_U32;
             value.Data.U32  = MFX_IMPL_SOFTWARE;
             break;
-        case APIVersion2_2:
+        case ApiVersion2_2:
             name            = (mfxU8*)"mfxImplDescription.ApiVersion.Version";
             value.Type      = MFX_VARIANT_TYPE_U32;
             value.Data.U32  = (2 << 16 | 2);
@@ -195,24 +192,24 @@ int Transcoder::transcode(int thread) {
     mfxStatus status_r                  = MFX_ERR_NONE;
     mfxFrameSurface1* decodeSurface     = NULL;
     mfxSyncPoint syncp                  = { };
+    mfxBitstream decodeStream           = { };
     mfxBitstream encodedStream          = { };
-    mfxBitstream threadDecodeStream     = { };
     const std::string outputFile        = "./t" + std::to_string(thread) + "_" + cfg.outputFile;
     std::ofstream output(outputFile, std::ios::binary);
 
     // We need separate bitstreams for each thread, but they can all point to the same (reading) data ...
-    threadDecodeStream.CodecId        = decodeCodec;
-    threadDecodeStream.MaxLength      = streamSize;
-    threadDecodeStream.DataLength     = streamSize;
-    threadDecodeStream.Data           = streamData;
+    decodeStream.CodecId                = decodeCodec;
+    decodeStream.MaxLength              = streamSize;
+    decodeStream.DataLength             = streamSize;
+    decodeStream.Data                   = streamData;
     // ... however, they'll need a unique buffer to write to.
-    encodedStream.MaxLength           = streamSize;
-    encodedStream.Data                = (mfxU8*)calloc(streamSize, sizeof(mfxU8));
+    encodedStream.MaxLength             = streamSize;
+    encodedStream.Data                  = (mfxU8*)calloc(encodedStream.MaxLength, sizeof(mfxU8));
 
     while (transcoding) {
         if (!drainingEncoder) { // when decoding has finished we'll only be draining the encoder
             status = MFXVideoDECODE_DecodeFrameAsync(*sessions[thread],
-                                                    (drainingDecoder == true) ? NULL : &threadDecodeStream,
+                                                    (drainingDecoder == true) ? NULL : &decodeStream,
                                                     NULL,
                                                     &decodeSurface,
                                                     &syncp);
@@ -251,6 +248,14 @@ int Transcoder::transcode(int thread) {
                                                 &encodedStream,
                                                 &syncp);
 
+        // Release surfaces no longer in use.
+        if (!drainingEncoder && decodeSurface) {
+            status_r = decodeSurface->FrameInterface->Release(decodeSurface);
+            if (status_r != MFX_ERR_NONE) {
+                printf("[%d] Couldn't release surface...\n", thread);
+            }
+        }
+
         switch (status) {
             case MFX_ERR_NONE: // function completed succesfully
                 if (syncp) {
@@ -279,6 +284,9 @@ int Transcoder::transcode(int thread) {
                 break;
         }
     }
+
+    free(encodedStream.Data);
+    output.close();
     
     if (!cfg.quiet)
         printf("[%d] Finished, encoded %d frames.\n", thread, encodedFramesCount);
