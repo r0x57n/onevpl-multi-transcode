@@ -24,7 +24,7 @@ int Transcoder::init() {
         printf("MFXLoad failed.\n");
         return -1;
     }
-
+    
     // Add requirements for the implementation we want.
     addRequirement(HasAvcDecoder);
     addRequirement(HasMpeg2Encoder);
@@ -62,6 +62,9 @@ int Transcoder::init() {
         }
     }
 
+    if (!cfg.quiet)
+        printImplementationInfo();
+
     return 0;
 }
 
@@ -82,12 +85,12 @@ int Transcoder::addRequirement(ConfigProperty prop) {
         case HardwareAccelerated:
             name            = (mfxU8*)"mfxImplDescription.Impl";
             value.Type      = MFX_VARIANT_TYPE_U32;
-            value.Data.U32  = MFX_IMPL_HARDWARE;
+            value.Data.U32  = MFX_IMPL_TYPE_HARDWARE;
             break;
         case SoftwareAccelerated:
             name            = (mfxU8*)"mfxImplDescription.Impl";
             value.Type      = MFX_VARIANT_TYPE_U32;
-            value.Data.U32  = MFX_IMPL_SOFTWARE;
+            value.Data.U32  = MFX_IMPL_TYPE_SOFTWARE;
             break;
         case ApiVersion2_2:
             name            = (mfxU8*)"mfxImplDescription.ApiVersion.Version";
@@ -148,7 +151,7 @@ int Transcoder::setCodecParams(mfxSession* session) {
     }
     
     // Set shared encoding parameters.
-    encodeParams.IOPattern                      = MFX_IOPATTERN_IN_SYSTEM_MEMORY;
+    encodeParams.IOPattern                      = MFX_IOPATTERN_IN_VIDEO_MEMORY;
     encodeParams.mfx.CodecId                    = encodeCodec;
     encodeParams.mfx.TargetUsage                = MFX_TARGETUSAGE_BALANCED;
     encodeParams.mfx.TargetKbps                 = TARGETKBPS;
@@ -182,6 +185,36 @@ int Transcoder::initCodec(mfxSession* session) {
 
     return 0;
 }
+
+void Transcoder::printImplementationInfo() {
+    mfxIMPL impl;
+    mfxVersion version = { 0, 1 };
+
+    mfxStatus sts = MFXQueryIMPL(*sessions[0], &impl);
+
+    sts = MFXQueryVersion(*sessions[0], &version);
+
+    printf("Session loaded:\n \tApiVersion = %d.%d\n \timplementation = ", version.Major, version.Minor);
+
+    switch (impl) {
+        case MFX_IMPL_SOFTWARE:
+            printf("Software\n");
+            break;
+        case MFX_IMPL_HARDWARE | MFX_IMPL_VIA_VAAPI:
+            printf("Hardware:VAAPI\n");
+            break;
+        case MFX_IMPL_HARDWARE | MFX_IMPL_VIA_D3D11:
+            printf("Hardware:D3D11\n");
+            break;
+        case MFX_IMPL_HARDWARE | MFX_IMPL_VIA_D3D9:
+            printf("Hardware:D3D9\n");
+            break;
+        default:
+            printf("Unknown\n");
+            break;
+    }
+}
+
 
 int Transcoder::transcode(int thread) {
     bool transcoding                    = true;

@@ -35,6 +35,7 @@ private:
     mfxVideoParam decodeParams          = { };
     mfxVideoParam encodeParams          = { };
 
+    void printImplementationInfo();
     int initCodec(mfxSession* session);
     int setCodecParams(mfxSession* parentSession);
     int addRequirement(ConfigProperty prop);
