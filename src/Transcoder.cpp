@@ -2,19 +2,6 @@
 
 Transcoder::Transcoder(Config cfg) : cfg(cfg) { }
 
-int Transcoder::cleanUp() {
-    for (int i = cfg.threads - 1; i >= 0; i--) {
-        MFXDisjoinSession(*sessions[i]);
-        MFXClose(*sessions[i]);
-        sessions.pop_back();
-    }
-
-    MFXUnload(loader);
-    free(streamData);
-
-    return 0;
-}
-
 int Transcoder::init() {
     mfxStatus status = MFX_ERR_NONE;
     mfxSession* parentSession = new mfxSession;
@@ -227,7 +214,7 @@ int Transcoder::transcode(int thread) {
     mfxSyncPoint syncp                  = { };
     mfxBitstream decodeStream           = { };
     mfxBitstream encodedStream          = { };
-    const std::string outputFile        = "./t" + std::to_string(thread) + "_" + cfg.outputFile;
+    const std::string outputFile        = cfg.outputDir + "/t" + std::to_string(thread) + "_" + cfg.outputFile;
     std::ofstream output(outputFile, std::ios::binary);
 
     // We need separate bitstreams for each thread, but they can all point to the same (reading) data ...
@@ -326,3 +313,17 @@ int Transcoder::transcode(int thread) {
 
     return 0;
 }
+
+int Transcoder::cleanUp() {
+    for (int i = cfg.threads - 1; i >= 0; i--) {
+        MFXDisjoinSession(*sessions[i]);
+        MFXClose(*sessions[i]);
+        sessions.pop_back();
+    }
+
+    MFXUnload(loader);
+    free(streamData);
+
+    return 0;
+}
+

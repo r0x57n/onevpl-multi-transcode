@@ -32,6 +32,10 @@ Config parseArguments(int argc, char* argv[]) {
                     cfg.threads = std::stoi(argv[i+1]);
                     i++;
                     break;
+                case 'o':
+                    cfg.outputDir = argv[i+1];
+                    i++;
+                    break;
                 default:
                     printf("Unknown flag: -%c\n", arg[1]);
                     exit(-1);

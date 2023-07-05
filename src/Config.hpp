@@ -8,6 +8,7 @@ struct Config {
     bool swi                = false;
     int threads             = 1;
     std::string inputFile   = "./in.264";
+    std::string outputDir   = "./";
     std::string outputFile  = "out.m2v";
 };
 

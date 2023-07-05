@@ -10,7 +10,7 @@
 #include "Config.hpp"
 
 #define WAIT_100_MILLISECONDS       100
-#define TARGETKBPS                  4000
+#define TARGETKBPS                  1000
 
 // A small subset of the available configuration properties of the dispatcher.
 // https://spec.oneapi.io/onevpl/latest/programming_guide/VPL_prg_session.html#onevpl-dispatcher-configuration-properties

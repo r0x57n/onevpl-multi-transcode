@@ -5,6 +5,7 @@ A simple multithreaded transcoder using [oneVPL](https://spec.oneapi.io/onevpl/l
 |----------|--------------------------------------------------------------------|
 | -q       | Run quietly.                                                       |
 | -s       | Use software acceleration (default off).                           |
+| -o       | Output folder (default "./").                                      |
 | -n NUM   | How many parallell transcodings (1:N) that should run (default 1). |
 | -h       | Print help message.                                                |
 
